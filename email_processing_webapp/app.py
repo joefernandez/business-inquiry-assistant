@@ -42,9 +42,6 @@ def index():
 
     return render_template('index.html')
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
 def get_prompt():
     return "Extract the relevant details of this request and return them in JSON format:\n"
 
@@ -63,3 +60,7 @@ def get_test_email():
     except FileNotFoundError:
         email_content = "Error: File not found!"
     return email_content
+
+# default method
+if __name__ == '__main__':
+    app.run(debug=True)

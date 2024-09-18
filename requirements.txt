@@ -1,0 +1,8 @@
+python-dotenv==1.0.1
+flask==3.0.3
+keras==3.5.0
+keras-nlp==0.14.4
+jax==0.4.30
+jax-cuda12-pjrt==0.4.30
+jax-cuda12-plugin==0.4.30
+jaxlib==0.4.30
