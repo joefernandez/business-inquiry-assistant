@@ -21,11 +21,10 @@ from dotenv import load_dotenv
 os.environ["KERAS_BACKEND"] = "jax"
 # Avoid memory fragmentation on JAX backend.
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "1.00"
-
 import keras_nlp
 
-os.environ["KERAS_BACKEND"] = "jax"  # Or "tensorflow" or "torch".
-os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
+# Switch for base model or tuned model
+use_tuned_model = False
 
 def initialize_model():
     """Loads environment variables and configures the Gemma model."""
@@ -40,13 +39,18 @@ def initialize_model():
 
     # create instance using Gemma 2 2B instruction tuned model
     gemma = keras_nlp.models.GemmaCausalLM.from_preset("gemma2_instruct_2b_en")
-    #gemma.summary() # REMOVE: FOR TESTING ONLY
 
-    # load and compile tuned model weights
-    gemma.backbone.enable_lora(rank=4)
-    gemma.backbone.load_lora_weights(f"./weights/gemma2-2b_k-tuned.lora.h5")
-    #gemma.compile(sampler="top_k")
-    gemma.compile(sampler=keras_nlp.samplers.TopKSampler(k=3, temperature=0.1))
+    if use_tuned_model:
+        # load and compile tuned model weights
+        gemma.backbone.enable_lora(rank=4)
+        gemma.backbone.load_lora_weights(f"./weights/gemma2-2b_inquiry_tuned.lora.h5")
+        #gemma.compile(sampler="top_k")
+        gemma.compile(sampler=keras_nlp.samplers.TopKSampler(k=3, temperature=0.1))
+
+    #else:
+        #gemma.compile(sampler=keras_nlp.samplers.TopKSampler(k=3, temperature=0.1))
+
+    gemma.summary() # FOR TESTING ONLY
 
     return gemma  # Return the initialized model
 
@@ -56,34 +60,31 @@ def create_message_processor():
 
     def process_message(prompt_text):
         """Processes a message using a local Gemma model."""
+        print("Bite: Processing AI request...")
+
         input = f"<start_of_turn>user\n{prompt_text}<end_of_turn>\n<start_of_turn>model\n"
         response = model.generate(input, max_length=512)
         # remove response tags
-        response = extract_substring(response)
+        response = trim_response(input, response)
 
-        print(response) # REMOVE: FOR TESTING ONLY
+        #print(response) # FOR TESTING ONLY
         return response
 
     return process_message
 
-def extract_substring(text):
-  """
-  Extracts the substring between "<end_of_turn>\n<start_of_turn>model" and the next "<end_of_turn>".
-
+def trim_response(prefix, response_text):
+  """Removes prompt prefix and suffix "<end_of_turn>".
   Args:
-      text: The input text.
-
+      prefix: Prompt prefix text.
+      response_text: The response text.
   Returns:
-      The extracted substring, or None if no match is found.
+      The trimmed substring, or original if string prefix and suffix are not found.
   """
-  match = re.search(r".*<end_of_turn>\n<start_of_turn>model\n(.*)<end_of_turn>", text, re.DOTALL)
-  if match:
-    return match.group(1).strip()
-  else:
-    return text
+  response_text = response_text.removeprefix(prefix)
+  response_text = response_text.removesuffix("<end_of_turn>")
+  return response_text
 
 # default method
 if __name__ == "__main__":
     process_message = create_message_processor()
     process_message("roses are red")
-    #print(extract_substring("<start_of_turn>user\nTHE PROMPT<end_of_turn>\n<start_of_turn>model\nTHE TEXT RESPONSE"))

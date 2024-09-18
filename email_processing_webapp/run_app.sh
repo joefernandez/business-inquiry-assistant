@@ -3,4 +3,5 @@
 # activate virtual environment
 source ../venv/bin/activate
 
-python3 main.py
+# run the web app with flask
+flask run

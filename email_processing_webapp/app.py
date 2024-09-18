@@ -14,16 +14,18 @@
 # limitations under the License.
 #
 from flask import Flask, render_template, request
-from web_ai_interface_app.models.gemini import create_message_processor
+#from models.gemini import create_message_processor
+from models.gemma import create_message_processor
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 customer_request = None
+# Initialize model before starting web service
+model_processor = create_message_processor()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global customer_request
     """Set up web interface and handle POST input."""
-    process_message = create_message_processor()
 
     # First run behavior: load a test email
     if customer_request is None:
@@ -35,7 +37,7 @@ def index():
         prompt = get_prompt()
         customer_request = request.form['request']
         prompt += customer_request
-        result = process_message(prompt)
+        result = model_processor(prompt)
         result = strip_markdown(result)
         # re-render page with data:
         return render_template('index.html', request=customer_request, result=result)
