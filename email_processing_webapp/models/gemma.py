@@ -23,8 +23,8 @@ os.environ["KERAS_BACKEND"] = "jax"
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "1.00"
 import keras_nlp
 
-# Switch for base model or tuned model
-use_tuned_model = False
+# Switch between base model or tuned model
+use_tuned_weights = True # change to False for published version
 
 def initialize_model():
     """Loads environment variables and configures the Gemma model."""
@@ -40,16 +40,14 @@ def initialize_model():
     # create instance using Gemma 2 2B instruction tuned model
     gemma = keras_nlp.models.GemmaCausalLM.from_preset("gemma2_instruct_2b_en")
 
-    if use_tuned_model:
+    if use_tuned_weights:
         # load and compile tuned model weights
         gemma.backbone.enable_lora(rank=4)
         gemma.backbone.load_lora_weights(f"./weights/gemma2-2b_inquiry_tuned.lora.h5")
-        #gemma.compile(sampler="top_k")
-        gemma.compile(sampler=keras_nlp.samplers.TopKSampler(k=3, temperature=0.1))
-
-    #else:
         #gemma.compile(sampler=keras_nlp.samplers.TopKSampler(k=3, temperature=0.1))
 
+    # For this use case, greedy sampling is best
+    gemma.compile(sampler="greedy")
     gemma.summary() # FOR TESTING ONLY
 
     return gemma  # Return the initialized model

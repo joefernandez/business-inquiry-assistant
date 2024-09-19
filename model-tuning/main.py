@@ -31,8 +31,9 @@ token_limit = 256
 batch_size_value = 1
 num_data_limit = 100
 lora_rank = 4
-learning_rate_value = 1e-4
-train_epochs = 20
+learning_rate_value = 9e-4
+weight_decay_value = 0.004
+train_epochs = 3
 lora_name = "gemma2-2b_inquiry_tuned"
 
 def set_environment():
@@ -46,28 +47,17 @@ def set_environment():
     if not kaggle_key:
         raise ValueError("KAGGLE_KEY environment variable not found. Did you set it in your .env file?")
 
-
-def generate_from_base_model(prompt_text):
-    """Generates a response using the Gemma base (untuned)  model."""
-    print("Starting generation run with Gemma base model...")
-    set_environment()
-
-    # create instance
-    gemma = keras_nlp.models.GemmaCausalLM.from_preset(model_id)
-    gemma.summary()
-
-    input = f"<start_of_turn>user\n{prompt_text}<end_of_turn>\n<start_of_turn>model\n"
-    output = gemma.generate(input, max_length=token_limit)
-    print("\nGemma output:")
-    print(output)
-
+# import tuning data:
+from data.tuning_records import prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6 
 
 def prepare_tuning_dataset():
-    tokenizer = keras_nlp.models.GemmaTokenizer.from_preset(model_id)
-
-    # load data from repository (or local directory)
-
-    # TODO: prepare tuning dataset
+    template = "{instruction}\n{response}"
+    # assemble data
+    tuning_dataset = []
+    for prompt in [prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6]:
+        tuning_dataset.append(template.format(instruction=prompt["prompt"],response=prompt["response"]))
+    
+    # print(tuning_dataset) # FOR TESTING ONLY
 
     return tuning_dataset
 
@@ -81,17 +71,16 @@ def tune_model_with_lora():
     # initialize model
     gemma = keras_nlp.models.GemmaCausalLM.from_preset(model_id)
 
-    # Enable LoRA for the model and set the LoRA rank to 4.
-    gemma.backbone.enable_lora(rank=lora_rank)
-    gemma.summary()
-
     # Limit the input sequence length (to control memory usage).
     gemma.preprocessor.sequence_length = token_limit
+
+    # Enable LoRA for the model and set the LoRA rank to 4.
+    gemma.backbone.enable_lora(rank=lora_rank)
     
     # Use AdamW (a common optimizer for transformer models).
     optimizer = keras.optimizers.AdamW(
         learning_rate=learning_rate_value,
-        weight_decay=0.01,
+        weight_decay=weight_decay_value,
     )
 
     # Exclude layernorm and bias terms from decay.
@@ -103,20 +92,52 @@ def tune_model_with_lora():
         weighted_metrics=[keras.metrics.SparseCategoricalAccuracy()],
     )
 
+    # callback to write out weights for each epoch
     class CustomCallback(keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
             model_name = f"weights/{lora_name}_{lora_rank}_epoch{epoch+1}.lora.h5"
             gemma.backbone.save_lora_weights(model_name)
 
     print("Starting tuning run...")
-    history = gemma.fit(tuning_dataset, epochs=train_epochs, batch_size=batch_size_value, callbacks=[CustomCallback()])
+    history = gemma.fit(
+        tuning_dataset, 
+        epochs=train_epochs, 
+        batch_size=batch_size_value, 
+        callbacks=[CustomCallback()]
+    )
 
+def generate_from_model(prompt_text, use_tuned_weights):
+    """Generates a response using the Gemma base (untuned)  model."""
+    print("Starting generation run with Gemma base model...")
+    set_environment()
+
+    # create instance
+    gemma = keras_nlp.models.GemmaCausalLM.from_preset(model_id)
+
+    if use_tuned_weights:
+        # load and compile tuned model weights
+        gemma.backbone.enable_lora(rank=4)
+        gemma.backbone.load_lora_weights(f"./weights/gemma2-2b_inquiry_tuned_4_epoch3.lora.h5")
+
+    # For this use case, the greedy sampler is best
+    gemma.compile(sampler="greedy")
+
+    gemma.summary()
+
+    input = f"<start_of_turn>user\n{prompt_text}<end_of_turn>\n<start_of_turn>model\n"
+    output = gemma.generate(input, max_length=token_limit)
+    print("\nGemma output:")
+    print(output)
 
 # default method -----------------------------
 if __name__ == "__main__":
     print("Starting the default method")
-    # test generation with base model:
-    #generate_from_base_model("roses are red")
+    # prepare dataset
+    #prepare_tuning_dataset()
 
     # conduct a model tuning run
-    tune_model_with_lora()
+    #tune_model_with_lora()
+
+    # test generation with base model:
+    generate_from_model("I'd like a vanilla cake with blueberry filling and a unicorn.", True)
+    
