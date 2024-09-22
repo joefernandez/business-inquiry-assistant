@@ -84,7 +84,6 @@ def prepare_tuning_dataset():
     template = "{instruction}\n{response}"
 
     for prompt in prompt_data:
-        print(template.format(instruction=prompt["prompt"],response=prompt["response"])) # TESTING ONLY
         tuning_dataset.append(template.format(instruction=prompt["prompt"],response=prompt["response"]))
     
     # print(tuning_dataset) # FOR TESTING ONLY
