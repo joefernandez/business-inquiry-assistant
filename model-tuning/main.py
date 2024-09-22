@@ -75,9 +75,6 @@ def read_json_files_to_dicts(directory_path):
                     print(f"Error decoding JSON in file {filename}: {e}")
     return json_data
 
-# import tuning data:
-#from data.tuning_records import prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6 
-
 def prepare_tuning_dataset():
     # collect data
     prompt_data = read_json_files_to_dicts("./data")
@@ -85,7 +82,7 @@ def prepare_tuning_dataset():
     # prepare data for tuning
     tuning_dataset = []
     template = "{instruction}\n{response}"
-    #for prompt in [prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6]:
+
     for prompt in prompt_data:
         print(template.format(instruction=prompt["prompt"],response=prompt["response"])) # TESTING ONLY
         tuning_dataset.append(template.format(instruction=prompt["prompt"],response=prompt["response"]))
@@ -93,7 +90,6 @@ def prepare_tuning_dataset():
     # print(tuning_dataset) # FOR TESTING ONLY
 
     return tuning_dataset
-
 
 def tune_model_with_lora():
     set_environment()
