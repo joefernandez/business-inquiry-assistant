@@ -46,7 +46,9 @@ def index():
     return render_template('index.html')
 
 def get_prompt():
-    return "Extract the relevant details of this request and return them in JSON format:\n"
+    return """
+    Extract the relevant details of this request and return them in JSON
+    code:\n"""
 
 def format_response(text):
     print("model response text:\n" + text)
