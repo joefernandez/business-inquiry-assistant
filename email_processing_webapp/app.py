@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 from flask import Flask, render_template, request
+import json
 #from models.gemini import create_message_processor
 from models.gemma import create_message_processor
 
@@ -27,18 +28,18 @@ def index():
     global customer_request
     """Set up web interface and handle POST input."""
 
-    # First run behavior: load a test email
+    # First run behavior: load a default request
     if customer_request is None:
         customer_request = get_test_email()
         return render_template('index.html', request=customer_request)
 
-    # Process email data
+    # Process request data
     if request.method == 'POST':
         prompt = get_prompt()
         customer_request = request.form['request']
         prompt += customer_request
         result = model_processor(prompt)
-        result = strip_markdown(result)
+        result = format_response(result)
         # re-render page with data:
         return render_template('index.html', request=customer_request, result=result)
 
@@ -47,13 +48,23 @@ def index():
 def get_prompt():
     return "Extract the relevant details of this request and return them in JSON format:\n"
 
-def strip_markdown(text):
-  if text.startswith('```json') and text.endswith('```'):
-     text = text.replace('```json', '')
-     text = text.replace('```', '')
-     text = text.strip()
+def format_response(text):
+    print("model response text:\n" + text)
+    # remove markdown code format syntax
+    text = text.replace('```json', '')
+    text = text.replace('```', '')
+    text = text.strip()
 
-  return text
+    # fix JSON object text for formatting
+    text = text.replace("'", '"')
+
+    try:
+        data = json.loads(text)
+        return json.dumps(data, indent=2)    
+    except json.JSONDecodeError:
+        print("Invalid JSON string provided.")
+    
+    return text
 
 def get_test_email():
     try:

@@ -18,6 +18,7 @@ import os
 from dotenv import load_dotenv
 import keras
 import datasets
+import json
 
 # Set the backbend before importing Keras
 os.environ["KERAS_BACKEND"] = "jax"
@@ -47,14 +48,46 @@ def set_environment():
     if not kaggle_key:
         raise ValueError("KAGGLE_KEY environment variable not found. Did you set it in your .env file?")
 
+def read_json_files_to_dicts(directory_path):
+    """Finds all JSON files in a directory and reads them into a 
+        list of dictionary objects.
+
+    Args:
+        directory: The directory to search for JSON files.
+
+    Returns:
+        An array dictionary objects each containing a "prompt" and "response".
+    """
+    json_data = []
+    for filename in os.listdir(directory_path):
+        if filename.endswith(".json"):
+            file_path = os.path.join(directory_path, filename)
+            with open(file_path, 'r') as f:
+                try:
+                    data = json.load(f)                    
+                    json_data.append(
+                        dict(
+                            prompt = data["prompt"],
+                            response = data["response"]
+                        )
+                    )
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON in file {filename}: {e}")
+    return json_data
+
 # import tuning data:
-from data.tuning_records import prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6 
+#from data.tuning_records import prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6 
 
 def prepare_tuning_dataset():
-    template = "{instruction}\n{response}"
-    # assemble data
+    # collect data
+    prompt_data = read_json_files_to_dicts("./data")
+
+    # prepare data for tuning
     tuning_dataset = []
-    for prompt in [prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6]:
+    template = "{instruction}\n{response}"
+    #for prompt in [prompt_1, prompt_2, prompt_3, prompt_4, prompt_4_2, prompt_5, prompt_5_2, prompt_6]:
+    for prompt in prompt_data:
+        print(template.format(instruction=prompt["prompt"],response=prompt["response"])) # TESTING ONLY
         tuning_dataset.append(template.format(instruction=prompt["prompt"],response=prompt["response"]))
     
     # print(tuning_dataset) # FOR TESTING ONLY
@@ -136,8 +169,5 @@ if __name__ == "__main__":
     #prepare_tuning_dataset()
 
     # conduct a model tuning run
-    #tune_model_with_lora()
-
-    # test generation with base model:
-    generate_from_model("I'd like a vanilla cake with blueberry filling and a unicorn.", True)
+    tune_model_with_lora()
     
