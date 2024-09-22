@@ -1,3 +1,3 @@
-# K-Mail replier model tuner
+# Email replier model tuner
 
-This project let's you generate tuned versions of a Gemma model and test it. 
+This project let's you generate tuned versions of a Gemma model and test it.
